@@ -9,6 +9,11 @@
     <packaging>pom</packaging>
     <version>0</version>
 
+    <modules>
+        <module>kafka-producer</module>
+        <module>kafka-consumer</module>
+    </modules>
+
     <developers>
         <developer>
             <name>Stephan Mueller</name>
