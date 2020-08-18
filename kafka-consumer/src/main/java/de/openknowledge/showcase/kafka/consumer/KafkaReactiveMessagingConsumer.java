@@ -33,6 +33,7 @@ public class KafkaReactiveMessagingConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingConsumer.class);
 
+  @Tracing
   @Incoming("messages")
   public CompletionStage onMessage(final Message message) {
     ConsumerRecord<String, CustomMessage> cr = (ConsumerRecord<String, CustomMessage>)message.unwrap(ConsumerRecord.class);

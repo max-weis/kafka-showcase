@@ -15,45 +15,70 @@
  */
 package de.openknowledge.showcase.kafka.producer;
 
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.eclipse.microprofile.reactive.messaging.Outgoing;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-
-import io.reactivex.rxjava3.core.BackpressureStrategy;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.core.FlowableEmitter;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Kafka producer that sends messages to a kafka topic.
+ * Kafka producer that sends messages to a kafka topic. The topic is configured in the microprofile-config.properties and server.xml.
  */
 @ApplicationScoped
 public class KafkaReactiveMessagingProducer {
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingProducer.class);
 
-  private FlowableEmitter<Message> emitter;
-
   @Inject
   @ConfigProperty(name = "mp.messaging.outgoing.messages.topic")
   private String topic;
 
+  @Inject
+  private Tracer tracer;
+
+  private Subscriber subscriber;
+
+  private AtomicLong requested = new AtomicLong();
+
   public void send(final CustomMessage message) {
-    LOG.info("Send message {}", message);
+    LOG.info("Send message: {}", message);
 
     ProducerRecord<String, CustomMessage> record = new ProducerRecord<>(topic, message);
 
-    emitter.onNext(Message.of(record));
+    Span span = this.tracer.buildSpan("send").asChildOf(this.tracer.activeSpan()).start();
+    record.headers().add("uber-trace-id", span.context().toString().getBytes());
+
+    if (requested.get() > 0) {
+      subscriber.onNext(Message.of(record));
+      span.finish();
+    }
   }
 
   @Outgoing("messages")
   public Publisher<Message> process() {
-    return Flowable.create(emitter -> this.emitter = emitter, BackpressureStrategy.BUFFER);
+    return subscriber -> {
+      KafkaReactiveMessagingProducer.this.subscriber = subscriber;
+      subscriber.onSubscribe(new Subscription() {
+        @Override
+        public void request(final long l) {
+            KafkaReactiveMessagingProducer.this.requested.addAndGet(l);
+        }
+
+        @Override
+        public void cancel() {
+        }
+      });
+    };
   }
 }

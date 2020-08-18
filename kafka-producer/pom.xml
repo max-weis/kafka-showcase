@@ -30,6 +30,9 @@
 
         <version.slf4j>1.7.30</version.slf4j>
 
+        <version.jaeger>0.34.0</version.jaeger>
+        <version.opentracing-kafka-client>0.0.20</version.opentracing-kafka-client>
+
         <liberty.var.default.http.port>9080</liberty.var.default.http.port>
         <liberty.var.default.https.port>9443</liberty.var.default.https.port>
         <liberty.var.app.context.root>${project.artifactId}</liberty.var.app.context.root>
@@ -90,6 +93,18 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>${version.slf4j}</version>
+        </dependency>
+
+        <!-- Tracing -->
+        <dependency>
+            <groupId>io.jaegertracing</groupId>
+            <artifactId>jaeger-client</artifactId>
+            <version>${version.jaeger}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentracing.contrib</groupId>
+            <artifactId>opentracing-kafka-client</artifactId>
+            <version>${version.opentracing-kafka-client}</version>
         </dependency>
     </dependencies>
 

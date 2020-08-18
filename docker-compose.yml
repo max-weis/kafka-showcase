@@ -1,40 +1,42 @@
 version: '3.7'
 
-volumes:
-  kafka_data:
-  zk_data:
-  zk_logs:
-
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.5.0
+    image: confluentinc/cp-zookeeper:5.5.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-    volumes:
-      - zk_data:/var/lib/zookeeper/data
-      - zk_logs:/var/lib/zookeeper/log
 
   kafka:
-    image: confluentinc/cp-kafka:5.5.0
+    image: confluentinc/cp-kafka:5.5.1
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-    volumes:
-      - kafka_data:/var/lib/kafka/data
     depends_on:
       - zookeeper
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.18.1
+    ports:
+      - 16686:16686
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
 
   kafka-producer:
     image: kafka-showcase/kafka-producer:0
     environment:
       - KAFKA_HOST=kafka:9092
-      - KAFKA_TOPIC=messages
+      - KAFKA_TOPIC=custom-messages
       - KAFKA_CLIENT_ID=kafka-producer
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_SERVICE_NAME=kafka-producer
+      - JAEGER_REPORTER_LOG_SPANS=true
+      - JAEGER_SAMPLER_TYPE=const
+      - JAEGER_SAMPLER_PARAM=1
     ports:
-      - 9082:9080
+      - 9080:9080
     depends_on:
       - kafka
 
@@ -42,8 +44,14 @@ services:
     image: kafka-showcase/kafka-consumer:0
     environment:
       - KAFKA_HOST=kafka:9092
-      - KAFKA_TOPIC=messages
+      - KAFKA_TOPIC=custom-messages
+      - KAFKA_DLQ_TOPIC=messages_dlq
       - KAFKA_CLIENT_ID=kafka-consumer
       - KAFKA_GROUP_ID=kafka-consumer
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_SERVICE_NAME=kafka-consumer
+      - JAEGER_REPORTER_LOG_SPANS=true
+      - JAEGER_SAMPLER_TYPE=const
+      - JAEGER_SAMPLER_PARAM=1
     depends_on:
       - kafka
