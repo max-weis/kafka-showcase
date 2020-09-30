@@ -29,9 +29,9 @@ import java.util.concurrent.CompletionStage;
  * Kafka consumer that receives messages from a Kafka topic.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingConsumer {
+public class KafkaConsumer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingConsumer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumer.class);
 
   @Tracing
   @Incoming("messages")

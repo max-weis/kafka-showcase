@@ -15,6 +15,8 @@
  */
 package de.openknowledge.showcase.kafka.producer;
 
+import java.util.Objects;
+
 /**
  * A DTO that represents a custom message.
  */
@@ -50,6 +52,24 @@ public class CustomMessage {
 
   public void setSender(final String sender) {
     this.sender = sender;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    CustomMessage that = (CustomMessage) o;
+    return Objects.equals(text, that.text) &&
+           Objects.equals(sender, that.sender);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(text, sender);
   }
 
   @Override

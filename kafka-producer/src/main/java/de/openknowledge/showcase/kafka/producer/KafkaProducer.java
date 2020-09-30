@@ -15,9 +15,6 @@
  */
 package de.openknowledge.showcase.kafka.producer;
 
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Message;
@@ -32,13 +29,16 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+
 /**
  * Kafka producer that sends messages to a kafka topic. The topic is configured in the microprofile-config.properties and server.xml.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingProducer {
+public class KafkaProducer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingProducer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaProducer.class);
 
   @Inject
   @ConfigProperty(name = "mp.messaging.outgoing.messages.topic")
@@ -68,11 +68,11 @@ public class KafkaReactiveMessagingProducer {
   @Outgoing("messages")
   public Publisher<Message> process() {
     return subscriber -> {
-      KafkaReactiveMessagingProducer.this.subscriber = subscriber;
+      KafkaProducer.this.subscriber = subscriber;
       subscriber.onSubscribe(new Subscription() {
         @Override
         public void request(final long l) {
-            KafkaReactiveMessagingProducer.this.requested.addAndGet(l);
+            KafkaProducer.this.requested.addAndGet(l);
         }
 
         @Override

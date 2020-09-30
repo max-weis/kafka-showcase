@@ -8,7 +8,8 @@ from the Kafka broker.
 **Notable Features:**
 * Apache Kafka broker
 * Integration of MP Reactive Messaging
-* Integration of MP OpenTracing 
+* Integration of MP OpenTracing
+* Testcontainer tests with MicroShed, Kafka and REST-assured
 
 ## How to run
 
@@ -101,7 +102,7 @@ The Kafka connector adds support for Kafka to Reactive Messaging. With it you ca
 To use the Kafka Connector for MicroProfile Reactive Messaging you have to add the following dependencies to your `pom.xml`:
 
 **pom.xml**
-```
+```xml
 <dependency>
   <groupId>org.eclipse.microprofile.reactive.messaging</groupId>
   <artifactId>microprofile-reactive-messaging-api</artifactId>
@@ -126,7 +127,7 @@ you prefer using a different microservice framework (e.g. Quarkus) please check 
 In addition to that you have to activate the MicroProfile in your `server.xml`:
 
 **server.xml**
-```
+```xml
 <featureManager>
   ...
   <feature>mpReactiveMessaging-1.0</feature>
@@ -148,14 +149,14 @@ To send messages to the topic `custom-messages` an outgoing channel has to be co
 be located in the `server.xml`.
 
 **microprofile-config.properties**
-```
+```properties
 mp.messaging.outgoing.messages.connector=liberty-kafka                                                                              
 mp.messaging.outgoing.messages.key.serializer=org.apache.kafka.common.serialization.StringSerializer                               
 mp.messaging.outgoing.messages.value.serializer=de.openknowledge.showcase.kafka.reactive.messaging.producer.CustomMessageSerializer
 ```
 
 **server.xml**
-```
+```xml
 <webApplication location="kafka-producer.war" contextRoot="${app.context.root}">
     <appProperties>
         <property name="mp.messaging.connector.liberty-kafka.bootstrap.servers" value="${kafka.host}"/>
@@ -175,8 +176,8 @@ which enables to add single messages to a reactive stream.
 
 For further information about _reactive streams_ and _RxJava_ please check the corresponding [documentation](https://github.com/ReactiveX/RxJava).
 
-**KafkaReactiveMessagingProducer (send a single message)**
-```
+**KafkaProducer (send a single message)**
+```java
 package de.openknowledge.showcase.kafka.producer;
 
 ...
@@ -199,9 +200,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * Kafka producer that sends messages to a kafka topic. The topic is configured in the microprofile-config.properties and server.xml.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingProducer {
+public class KafkaProducer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingProducer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaProducer.class);
 
   @Inject
   @ConfigProperty(name = "mp.messaging.outgoing.messages.topic")
@@ -229,11 +230,11 @@ public class KafkaReactiveMessagingProducer {
   @Outgoing("messages") // has to be equal to outgoing channel-name in microprofile-config.properties and server.xml
   public Publisher<Message> process() {
     return subscriber -> {
-      KafkaReactiveMessagingProducer.this.subscriber = subscriber;
+      KafkaProducer.this.subscriber = subscriber;
       subscriber.onSubscribe(new Subscription() {
         @Override
         public void request(final long l) {
-            KafkaReactiveMessagingProducer.this.requested.addAndGet(l);
+            KafkaProducer.this.requested.addAndGet(l);
         }
 
         @Override
@@ -253,13 +254,13 @@ Client and has to be configured in the `microprofile-config.properties`.
 
 To send as JSON, a custom serializer has to be provided.
 
-```
+```properties
 mp.messaging.outgoing.messages.key.serializer=org.apache.kafka.common.serialization.StringSerializer
 mp.messaging.outgoing.messages.value.serializer=de.openknowledge.showcase.kafka.reactive.messaging.producer.CustomMessageSerializer
 ```
 
 **CustomMessageSerializer**
-```
+```java
 package de.openknowledge.showcase.kafka.producer;
 
 import org.apache.kafka.common.serialization.Serializer;
@@ -286,14 +287,14 @@ the `server.xml`. If you want to set values by environment variables during the 
 to be located in the `server.xml`.
 
 **microprofile-config.properties**
-```
+```properties
 mp.messaging.incoming.messages.connector=liberty-kafka                                                                                   (2)
 mp.messaging.incoming.messages.key.deserializer=org.apache.kafka.common.serialization.StringDeserializer                                 (6)
 mp.messaging.incoming.messages.value.deserializer=de.openknowledge.showcase.kafka.reactive.messaging.consumer.CustomMessageDeserializer  (7)
 ```
 
 **server.xml**
-```
+```xml
 <webApplication location="kafka-consumer.war" contextRoot="${app.context.root}">
     <appProperties>
         <property name="mp.messaging.connector.liberty-kafka.bootstrap.servers" value="${kafka.host}"/>
@@ -307,8 +308,8 @@ mp.messaging.incoming.messages.value.deserializer=de.openknowledge.showcase.kafk
 To receive messages from a incoming channel a reactive message consumer has to be implemented. Therefore a method annotated with the
 annotation `@Incoming("<channel-name>")` and the expected message as a parameter has to be provided.
  
-**KafkaReactiveMessagingConsumer**
-```
+**KafkaConsumer**
+```java
 package de.openknowledge.showcase.kafka.consumer;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -325,9 +326,9 @@ import java.util.concurrent.CompletionStage;
  * Kafka consumer that receives messages from a Kafka topic.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingConsumer {
+public class KafkaConsumer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingConsumer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumer.class);
 
   @Incoming("messages") // has to be equal to incoming channel-name in microprofile-config.properties and server.xml
   public CompletionStage onMessage(final Message message) {
@@ -348,13 +349,13 @@ Client and has to be configured in the `microprofile-config.properties`.
 
 To receive message in JSON, a custom deserializer has to be provided.
 
-```
+```properties
 mp.messaging.incoming.messages.key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
 mp.messaging.incoming.messages.value.deserializer=de.openknowledge.showcase.kafka.reactive.messaging.consumer.CustomMessageDeserializer
 ```
 
 **CustomMessageSerializer**
-```
+```java
 package de.openknowledge.showcase.kafka.consumer;
 
 import org.apache.kafka.common.serialization.Deserializer;
@@ -375,7 +376,6 @@ public class CustomMessageDeserializer implements Deserializer<CustomMessage> {
   }
 }
 ```
-
 
 
 ### MicroProfile OpenTracing
@@ -404,7 +404,7 @@ forwards the spans to the Jaeger server. To use the Jaeger client and the OpenTr
 Messaging you have to add the following dependencies to your `pom.xml`:
 
 **pom.xml**
-```
+```xml
 <dependency>
     <groupId>io.jaegertracing</groupId>
     <artifactId>jaeger-client</artifactId>
@@ -420,7 +420,7 @@ Messaging you have to add the following dependencies to your `pom.xml`:
 In addition to that you have to activate the MicroProfile in your `server.xml` and to configure the classloader.
 
 **server.xml**
-```
+```xml
 <featureManager>
   <feature>microProfile-3.3</feature> <!-- or <feature>mpOpenTracing-1.3</feature> -->
   ...
@@ -436,8 +436,8 @@ In addition to that you have to activate the MicroProfile in your `server.xml` a
 
 To send messages to the topic `custom-messages` which should be traced, a span has to be added to the Kafka record header. 
 
-**KafkaReactiveMessagingProducer**
-```
+**KafkaProducer**
+```java
 package de.openknowledge.showcase.kafka.producer;
 
 import io.opentracing.Span;
@@ -449,9 +449,9 @@ import io.opentracing.Tracer;
  * Kafka producer that sends messages to a kafka topic. The topic is configured in the microprofile-config.properties and server.xml.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingProducer {
+public class KafkaProducer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingProducer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaProducer.class);
 
   @Inject
   @ConfigProperty(name = "mp.messaging.outgoing.messages.topic")
@@ -490,8 +490,8 @@ public class KafkaReactiveMessagingProducer {
 To retrieve messages from the topic `custom-messages` which should be traced, the span transmitted in the Kafka record header has to be 
 read from it. To receive the span from the record header, the `TracingInterceptor` is provided.
 
-**KafkaReactiveMessagingConsumer**
-```
+**KafkaConsumer**
+```java
 package de.openknowledge.showcase.kafka.consumer;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -508,9 +508,9 @@ import java.util.concurrent.CompletionStage;
  * Kafka consumer that receives messages from a Kafka topic.
  */
 @ApplicationScoped
-public class KafkaReactiveMessagingConsumer {
+public class KafkaConsumer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaReactiveMessagingConsumer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumer.class);
 
   @Tracing
   @Incoming("messages") // has to be equal to incoming channel-name in microprofile-config.properties and server.xml
@@ -528,7 +528,7 @@ public class KafkaReactiveMessagingConsumer {
 
 The annotation `Tracing` is a CDI stereotype for a method that needs to be traced.
 
-```
+```java
 package de.openknowledge.showcase.kafka.consumer;
 
 import javax.interceptor.InterceptorBinding;
@@ -556,7 +556,7 @@ public @interface Tracing {
 The `TracingInterceptor` is a CDI interceptor. To register the interceptor to a specific method the `Tracing` annotation has to be added to 
 it.
 
-```
+```java
 package de.openknowledge.showcase.kafka.consumer;
 
 import io.jaegertracing.Configuration;
@@ -593,6 +593,278 @@ public class TracingInterceptor implements Serializable {
     TracingKafkaUtils.buildAndFinishChildSpan(record, tracer);
 
     return ctx.proceed();
+  }
+}
+```
+
+
+### Testcontainer tests with MicroShed, Kafka and REST-assured
+
+For the application a set of integration tests is provided. The tests bases on MicroShed combined with REST-assured. The docker container 
+for the application is build by the dockerfile-maven-plugin during the package phase.
+
+To improve the runtime of the microshed tests by avoid starting and stopping the container for every test class, the 
+[shared container](https://microshed.org/microshed-testing/features/SharedContainerConfiguration.html) pattern is used.
+
+The container is started only once when the base class is loaded. The container can then be used by all test classes which are annotated 
+with `@MicroShedTest` and `@SharedContainerConfig(AbstractIntegrationTest.class)`. At the end of the test suite the Ryuk container that is 
+started by Testcontainers/MicroShed will take care of stopping the singleton container.
+
+**AppContainerConfig - Superclass for all Testcontainers tests providing the containerized application**
+
+```java
+package de.openknowledge.showcase.kafka.testing;
+
+import org.microshed.testing.SharedContainerConfiguration;
+import org.microshed.testing.testcontainers.ApplicationContainer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.junit.jupiter.Container;
+
+import java.time.Duration;
+
+/**
+ * Provides testcontainers for integration tests.
+ */
+public class AppContainerConfig implements SharedContainerConfiguration {
+
+  private static final Network NETWORK = Network.newNetwork();
+
+  public static final String TOPIC = "messages";
+
+  private static final String KAFKA_ALIAS = "kafka";
+
+  @Override
+  public void startContainers() {
+    KAFKA.start();
+    KAFKA_PRODUCER.start();
+    KAFKA_CONSUMER.start();
+  }
+
+  @Container
+  public static final KafkaContainer KAFKA = new KafkaContainer()
+      .withNetwork(NETWORK)
+      .withNetworkAliases(KAFKA_ALIAS)
+      .withEnv("KAFKA_BROKER_ID", "1")
+      .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1");
+
+  @Container
+  public static final ApplicationContainer KAFKA_PRODUCER = new ApplicationContainer("kafka-showcase/kafka-producer:0")
+      .withNetwork(NETWORK)
+      .withNetworkAliases("kafka-producer")
+      .dependsOn(KAFKA)
+      .withEnv("KAFKA_HOST", KAFKA_ALIAS + ":9092")
+      .withEnv("KAFKA_TOPIC", TOPIC)
+      .withEnv("KAFKA_CLIENT_ID", "kafka-producer")
+      .withAppContextRoot("kafka-producer")
+      .waitingFor(new WaitAllStrategy().withStrategy(Wait.forHttp("/health/live"))
+          .withStartupTimeout(Duration.ofMinutes(1)));
+
+  @Container
+  public static final GenericContainer KAFKA_CONSUMER = new GenericContainer<>("kafka-showcase/kafka-consumer:0")
+      .withNetwork(NETWORK)
+      .withNetworkAliases("kafka-consumer")
+      .dependsOn(KAFKA)
+      .withExposedPorts(9080)
+      .withEnv("KAFKA_HOST", KAFKA_ALIAS + ":9092")
+      .withEnv("KAFKA_TOPIC", TOPIC)
+      .withEnv("KAFKA_CLIENT_ID", "kafka-consumer")
+      .withEnv("KAFKA_GROUP_ID", "kafka-consumer")
+      .waitingFor(new WaitAllStrategy().withStrategy(Wait.forHttp("/health/live"))
+          .withStartupTimeout(Duration.ofMinutes(1)));
+}
+```
+
+#### Integration tests with MicroShed and REST-assured
+
+[MicroShed](https://microshed.org/microshed-testing/) is a testframework based on Testcontainers. MicroShed Testing offers a fast and 
+simple way of writing and running true-to-production integration tests for Java microservice applications. Therefore MicroShed provides 
+standalone Kafka producer and consumer, which allow to test the producer/consumer application separately. MicroShed Testing provides 
+integration with applications using Apache Kafka for messaging. Producer/Consumer(from the Kafka Core API) annotated with a 
+_KafkaConsumerClient_ or a _KafkaProducerClient_ Annotation, will send/receive messages to/from Kafka. 
+
+
+[REST-assured](https://rest-assured.io/) is a popular testframework for testing and validating REST services that brings the simplicity of 
+dynamic languages into the Java domain. To ease making HTTP requests to the containerized application, REST-assured provides specifications
+to reuse response expectations and/or request parameters for different tests.
+
+
+**ProducerIT - Integration test for the Producer Application**
+
+```java
+package de.openknowledge.showcase.kafka.producer;
+
+import io.restassured.RestAssured;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.jupiter.api.Test;
+import org.microshed.testing.SharedContainerConfig;
+import org.microshed.testing.jupiter.MicroShedTest;
+import org.microshed.testing.kafka.KafkaConsumerClient;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import static de.openknowledge.showcase.kafka.producer.AppContainerConfig.KAFKA_PRODUCER;
+import static de.openknowledge.showcase.kafka.producer.AppContainerConfig.TOPIC;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * A test class that verifies that a producer can send a message.
+ */
+@SharedContainerConfig(AppContainerConfig.class)
+@MicroShedTest
+public class ProducerIT {
+
+  @KafkaConsumerClient(groupId = "kafka-consumer", topics = TOPIC, 
+      keyDeserializer = StringDeserializer.class, valueDeserializer = TestCustomMessageDeserializer.class)
+  public static KafkaConsumer<String, CustomMessage> consumer;
+
+  @Test
+  void sendMessage() throws Exception {
+    // first poll throws an exception. polling twice resets the offset and fixes the problem
+    consumer.poll(Duration.ofSeconds(1));
+
+    UUID uuid = UUID.randomUUID();
+
+    RestAssured.given()
+        .queryParam("msg", uuid.toString())
+        .when()
+        .get("/api/messages")
+        .then()
+        .statusCode(202);
+
+    List<ConsumerRecord<String, CustomMessage>> records = new ArrayList<>();
+    consumer.poll(Duration.ofSeconds(30))
+        .records(TOPIC)
+        .forEach(records::add);
+
+    assertThat(records).hasSize(1);
+    assertThat(records.get(0).value()).isEqualTo(new CustomMessage(uuid.toString()));
+  }
+}
+```
+
+**ConsumerIT - Integration test for the Consumer Application**
+
+```java
+package de.openknowledge.showcase.kafka.consumer;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.jupiter.api.Test;
+import org.microshed.testing.SharedContainerConfig;
+import org.microshed.testing.jupiter.MicroShedTest;
+import org.microshed.testing.kafka.KafkaProducerClient;
+import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.output.WaitingConsumer;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static de.openknowledge.showcase.kafka.consumer.AppContainerConfig.KAFKA_CONSUMER;
+import static de.openknowledge.showcase.kafka.consumer.AppContainerConfig.TOPIC;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * A test class that verifies that a consumer can receive a message.
+ */
+@SharedContainerConfig(AppContainerConfig.class)
+@MicroShedTest
+public class ConsumerIT {
+
+  private WaitingConsumer waitingConsumer = new WaitingConsumer();
+
+  @KafkaProducerClient(valueSerializer = TestCustomMessageSerializer.class)
+  public static KafkaProducer<String, CustomMessage> producer;
+
+  @Test
+  void receiveMessage() throws TimeoutException {
+    KAFKA_CONSUMER.followOutput(waitingConsumer, OutputFrame.OutputType.STDOUT);
+
+    UUID uuid = UUID.randomUUID();
+
+    producer.send(new ProducerRecord<>(TOPIC, new CustomMessage(uuid.toString(), "MicroShed Kafka Producer")));
+
+    waitingConsumer.waitUntil(frame -> frame.getUtf8String()
+        .contains("Received message CustomMessage{text='test', sender='MicroShed Kafka Producer'}"), 2, TimeUnit.MINUTES);
+
+    String consumerLogs = KAFKA_CONSUMER.getLogs();
+    assertThat(consumerLogs).contains("Received message CustomMessage{text='" + uuid.toString() + "', sender='MicroShed Kafka Producer'}");
+  }
+}
+```
+
+**TestCustomMessageSerializer - limitation**
+
+The _KafkaProducerClient_ needs a generic Serializer for the ValueSerializer. It cannot use the CustomMessageSerializer used by the custom KafkaProducer.
+This is implementation of the test serializer:
+
+```java
+public class TestCustomMessageSerializer implements Serializer<Object> {
+
+  @Override
+  public byte[] serialize(final String topic, final Object data) {
+    return JsonbBuilder.create().toJson(data).getBytes();
+  }
+}
+```
+
+
+**ProducerConsumerIT - Combined integration test for the producer and the consumer application**
+
+```java
+package de.openknowledge.showcase.kafka.testing;
+
+import io.restassured.RestAssured;
+import org.junit.jupiter.api.Test;
+import org.microshed.testing.SharedContainerConfig;
+import org.microshed.testing.jupiter.MicroShedTest;
+import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.output.WaitingConsumer;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static de.openknowledge.showcase.kafka.testing.AppContainerConfig.KAFKA_CONSUMER;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * A test class that verifies that a consumer can receive a message send by a producer.
+ */
+@SharedContainerConfig(AppContainerConfig.class)
+@MicroShedTest
+public class ProducerConsumerIT {
+
+  private WaitingConsumer waitingConsumer = new WaitingConsumer();
+
+  @Test
+  void sendAndReceiveMessage() throws TimeoutException {
+    KAFKA_CONSUMER.followOutput(waitingConsumer, OutputFrame.OutputType.STDOUT);
+
+    UUID uuid = UUID.randomUUID();
+
+    RestAssured
+        .given()
+        .queryParam("msg", uuid.toString())
+        .when()
+        .get("/api/messages")
+        .then()
+        .statusCode(202);
+
+    waitingConsumer.waitUntil(frame -> frame.getUtf8String()
+        .contains("Received message CustomMessage{text='test', sender='Reactive Messaging Producer'}"), 2, TimeUnit.MINUTES);
+
+    String consumerLogs = KAFKA_CONSUMER.getLogs();
+    assertThat(consumerLogs).contains("Received message CustomMessage{text='" + uuid.toString() + "', sender='Reactive Messaging Producer'}");
   }
 }
 ```

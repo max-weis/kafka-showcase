@@ -33,7 +33,7 @@ public class MessageResource {
   private static final Logger LOG = LoggerFactory.getLogger(MessageResource.class);
 
   @Inject
-  private KafkaReactiveMessagingProducer producer;
+  private KafkaProducer producer;
 
   @GET
   public Response sendMessage(@QueryParam("msg") String message) {
